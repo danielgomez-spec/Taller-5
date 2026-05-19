@@ -1,30 +1,90 @@
-% --- HECHOS (Base de Conocimiento) ---
+
+% Personajes 
 personaje('Elara', 5, 100).
 personaje('Kael', 3, 80).
 personaje('Rin', 7, 120).
+personaje('Hercules', 6, 110).
+personaje('Sonya', 4, 90).
+personaje('jax', 2, 75).
 
 mision(m1, 'Bosque de Sombras', 2, 50).
 mision(m2, 'Cueva del Dragón', 5, 120).
 mision(m3, 'Torre Arcana', 7, 200).
 
+% Inventarios Corregidos 
 inventario('Elara', [espada, escudo, pocion]).
 inventario('Kael', [arco, flechas]).
 inventario('Rin', [varita, grimorio, pocion, amuleto]).
+inventario('Hercules', [hacha, escudo]).
+inventario('Sonya', [daga, pocion]).
+inventario('jax', [garrote]).
 
 requiere(m2, escudo).
 requiere(m2, pocion).
 requiere(m3, grimorio).
 requiere(m3, pocion).
 
-% --- REGLAS ARITMÉTICAS Y RECURSIVAS ---
+% Tres Enemigos 
+enemigo(caballero_oscuro, 40).
+enemigo(mago, 90).
+enemigo(rey_esqueleto, 250).
 
-% 1. Verificación de nivel (Operador relacional >=)
+% Fuerza de Ataque de las Armas 
+fuerza_arma(espada, 30).
+fuerza_arma(arco, 25).
+fuerza_arma(varita, 35).
+fuerza_arma(hacha, 45).
+fuerza_arma(daga, 15).
+fuerza_arma(garrote, 10).
+fuerza_arma(escudo, 0).  
+fuerza_arma(pocion, 0).
+
+% REGLAS DE COMBATE 
+
+%  Validar si un jugador tiene un arma y obtiene su daño
+obtener_danio_personaje(Personaje, Arma, Danio) :-
+    inventario(Personaje, Inventario),
+    member(Arma, Inventario),
+    fuerza_arma(Arma, Danio).
+
+% Ataque de 1 jugador
+ejecutar_ataque_individual(Personaje, Arma, Enemigo, Mensaje) :-
+    enemigo(Enemigo, VidaEnemigo),
+    obtener_danio_personaje(Personaje, Arma, Danio),
+    ( Danio >= VidaEnemigo ->
+        Resultado = " y logra derrotarlo solo."
+    ; 
+        Resultado = " pero NO es suficiente para derrotarlo solo."
+    ),
+    atomic_list_concat([Personaje, " ataca al ", Enemigo, " (Vida: ", VidaEnemigo, ") con ", Arma, " haciendo ", Danio, " de danio", Resultado], Mensaje).
+
+% Ataque de varios jugadores
+procesar_ataque_grupo([], 0, []).
+procesar_ataque_grupo([P|Ps], DanioTotal, [DetalleP|DetallesResto]) :-
+    obtener_danio_personaje(P, Arma, DanioP),
+    atomic_list_concat([P, " con ", Arma, " (", DanioP, ")"], DetalleP),
+    procesar_ataque_grupo(Ps, DanioResto, DetallesResto),
+    DanioTotal is DanioP + DanioResto.
+
+ejecutar_ataque_grupal(ListaPersonajes, Enemigo, Mensaje) :-
+    enemigo(Enemigo, VidaEnemigo),
+    procesar_ataque_grupo(ListaPersonajes, DanioTotal, ListaDetalles),
+    formatear_nombres_rec(ListaDetalles, DetalleGrupoFormateado),
+    ( DanioTotal >= VidaEnemigo ->
+        Resultado = " y ¡LOGRAN derrotarlo en equipo!"
+    ; 
+        Resultado = " y NO logran derrotarlo."
+    ),
+    atomic_list_concat(['El grupo compuesto por [', DetalleGrupoFormateado, '] atacan al ', Enemigo, ' (Vida: ', VidaEnemigo, ') sumando un danio total de ', DanioTotal, Resultado], Mensaje).
+
+
+% REGLAS ARITMÉTICAS Y RECURSIVAS 
+
 puede_aceptar(Personaje, ID_Mision) :-
     personaje(Personaje, Nivel, _),
     mision(ID_Mision, _, Dificultad, _),
     Nivel >= Dificultad.
 
-% 2. Cálculo recursivo de XP acumulada (Patrón factorial de 2.1)
 xp_acumulada(0, 0).
 xp_acumulada(N, Total) :-
     N > 0,
@@ -32,33 +92,24 @@ xp_acumulada(N, Total) :-
     xp_acumulada(N1, Prev),
     Total is Prev + (30 * N).   
 
-% 3. Verificación de inventario con member/2
 tiene_requerido(Personaje, Objeto) :-
     inventario(Personaje, Lista),
     member(Objeto, Lista).      
 
-% --- REGLAS DE UNIFICACIÓN Y COMPARACIÓN ---
-
-% 1. Detectar personajes del mismo nivel exacto (vs unificación)
 mismo_nivel(P1, P2) :-
     personaje(P1, N, _),
     personaje(P2, N, _),
     P1 \== P2.              
 
-% 2. Validar balance aritmético estricto
 es_balanceado(Personaje) :-
     personaje(Personaje, _, Vida),
     Vida =:= 100.           
 
-% --- PROCESAMIENTO DE LISTAS Y NLP RECURSIVO ---
-
-% 1. Fusionar inventarios de dos personajes usando append/3 (2.3)
 fusionar_equipo(P1, P2, EquipoFusionado) :-
     inventario(P1, L1),
     inventario(P2, L2),
     append(L1, L2, EquipoFusionado).
 
-% 2. Base de conjugación
 tiempo(presente). tiempo(pasado). tiempo(futuro).
 persona(primera). persona(segunda). persona(tercera).
 numero(singular). numero(plural).
@@ -68,13 +119,10 @@ ser(presente, segunda, singular, "eres").
 ser(presente, tercera, singular, "es").
 ser(pasado, tercera, singular, "fue").
 ser(futuro, tercera, singular, "será").
-
-% Hechos extendidos para dar soporte a las tres personas del plural:
 ser(presente, primera, plural, "somos").   
 ser(presente, segunda, plural, "son").    
 ser(presente, tercera, plural, "son").     
 
-% 3. Regla de inferencia con estructura condicional (2.3)
 conjugar_accion(Verbo, Tiempo, Persona, Numero, Conjugacion) :-
     tiempo(Tiempo), persona(Persona), numero(Numero),
     (  Verbo = "ser" ->
@@ -82,13 +130,11 @@ conjugar_accion(Verbo, Tiempo, Persona, Numero, Conjugacion) :-
        Conjugacion = R
     ;  Conjugacion = Verbo ). 
 
-% 4. Validación recursiva de nivel aplicable a listas de personajes
 todos_pueden_aceptar([], _).
 todos_pueden_aceptar([P|Ps], MisionID) :-
     puede_aceptar(P, MisionID),
     todos_pueden_aceptar(Ps, MisionID).
 
-% 5. Formateador recursivo de nombres para listas 
 formatear_nombres_rec([P], P).
 formatear_nombres_rec([P1, P2], Resultado) :- 
     atomic_list_concat([P1, " y ", P2], Resultado).
@@ -97,7 +143,6 @@ formatear_nombres_rec([P|Ps], Resultado) :-
     formatear_nombres_rec(Ps, Resto),
     atomic_list_concat([P, ", ", Resto], Resultado).
 
-% 6. Generación de reporte grupal  
 generar_reporte_grupal(ListaPersonajes, MisionID, Persona, Mensaje) :-
     todos_pueden_aceptar(ListaPersonajes, MisionID),
     mision(MisionID, NombreMision, _, XP),
